@@ -33,8 +33,6 @@ arguments
     
 end
 
-% nel caso non è stata specificata una time zone, viene usata quella dei
-% dati 
 if(isempty(options.TimeZone))
     options.TimeZone = DataTable.DatetimeEnd(1).TimeZone;    
 end
@@ -50,7 +48,6 @@ else
     disp("Full data kept")
 end
 
-% rimozione date fuori sequenza ovvero quelle che hanno min/sec ~= 0
 index = minute(DataTable.DatetimeEnd) ~= 0 | second(DataTable.DatetimeEnd) ~= 0 ;
 DataTable(index,:) = [];
 
@@ -67,7 +64,7 @@ Metadata = Metadata(index,:);
 
 % time di start e end
 % Attenzione allo shift della misura che potrebbe rimuovere l'ora di
-% campionamento -> aggiungere 1 ora. 
+% campionamento 
 tStart = min(DataTable.DatetimeEnd);
 tStart.TimeZone = options.TimeZone;
 tStart = dateshift(tStart,'start','year') + hours(1);
@@ -79,22 +76,8 @@ tEnd = dateshift(dateshift(tEnd,'end','year'),'end','day');
 nHours = hours(time(between(tStart,tEnd,'time')));
 
 varType = {'categorical', 'categorical','double', 'double'};
-
 varName = {'Countrycode', 'AirQualityStation', 'AirPollutantCode', 'Concentration'};
 
-% 'double', 'double'
-% 'Validity', 'Verification'
-
-% 'double', ...
-%     'double', 'double', 'double', 'categorical', 'categorical',...
-%     'categorical', 'double', 'double'
-
-
-% 'AirPollutantCode', ...
-%     'Longitude','Latitude', 'Altitude', 'MeasurementType', ...
-%     'AirQualityStationType','AirQualityStationArea', 'InletHeight', 'BuildingDistance'
-
-% Between: t1 = t2  + dt per cui è necessario aggiungere il +1
 
 timeFormat = timetable('Size',[nHours+1 length(varName)],'VariableType',varType,...
     'TimeStep',hours(1),'StartTime',tStart,'VariableNames',varName);

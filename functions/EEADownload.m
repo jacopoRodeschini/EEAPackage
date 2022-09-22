@@ -13,8 +13,8 @@ function [Table Metadata ErrorPath] = EEADownload(options)
 %  CountryCode = IT
 %  CityName = ""
 %  Pollutant = 10 (pm10)
-%  Year_from = "2016"
-%  Year_to = "2021"
+%  tStart = "2016"
+%  tEnd = "2021"
 %  Source = "All"
 %  TimeCoverage= "Year"
 %  Cluster = local
@@ -22,7 +22,7 @@ function [Table Metadata ErrorPath] = EEADownload(options)
 %  TimeZone = "Europe/Zurich"
 %
 %  EXAMPLE
-%  path = EEADownload('Year_from','2016','Year_to','2018','Pollutant','5')
+%  path = EEADownload('tStart','2016','tEnd','2018','Pollutant','5')
 %  path = EEADownload('Pollutant','10')
 %  path = EEADownload('Pollutant',"10",'Source',"All",'CountryCode',"IT");
 %  path = EEADownload('Source',"E1a",'CountryCode',"DE");
@@ -40,8 +40,8 @@ arguments
     options.CountryCode(1,1)= "IT";
     options.CityName(1,1) = "";
     options.PollutantCode(1,1) = 5; %pm10
-    options.Year_from(1,1) = "2016";
-    options.Year_to(1,1) = "2021";
+    options.tStart(1,1) = "2016";
+    options.tEnd(1,1) = "2021";
     options.Source(1,1) = "All";
     options.TimeCoverage(1,1) = "Year";
     options.Verbose(1,1) = true;
@@ -54,8 +54,8 @@ options.UpdateDate(1,1) = "";
     
 tic 
 url = sprintf('https://fme.discomap.eea.europa.eu/fmedatastreaming/AirQualityDownload/AQData_Extract.fmw?CountryCode=%s&CityName=%s&Pollutant=%d&Year_from=%s&Year_to=%s&Station=%s&Samplingpoint=%s&Source=%s&Output=%s&UpdateDate=%s&TimeCoverage=%s',...
-    options.CountryCode,options.CityName,options.PollutantCode,options.Year_from,...
-    options.Year_to,options.Station,options.Samplingpoint,options.Source,...
+    options.CountryCode,options.CityName,options.PollutantCode,options.tStart,...
+    options.tEnd,options.Station,options.Samplingpoint,options.Source,...
     "TEXT",options.UpdateDate,options.TimeCoverage);
 
 opts = weboptions('Timeout',20,'ContentType','text');
@@ -77,6 +77,7 @@ try
     fid = fopen(linkfile,'r');
     str = fscanf(fid,'%s');
     fclose(fid);
+    delete(linkfile); 
     
    
 catch Ex
@@ -151,9 +152,6 @@ Table = vertcat(Table{:});
 Table = addvars(Table,repmat(uint32(options.PollutantCode),[size(Table,1),1]),...
     'NewVariableNames','AirPollutantCode','After','AirQualityStation');
 
-% Replace categorical with number and save number in metadata;
-% //todo;
-
 % sort rows
 Table = sortrows(Table,'DatetimeEnd');
 
@@ -166,6 +164,7 @@ path = websave("metadata.csv",metaUrl,opts);
 
 % load metadata
 temp = EEAImportMetadata(path);
+delete(path);
 
 % Extract station informations (IT/DE - Lat/Lon)
 index = ismember(temp.AirQualityStation,Table.AirQualityStation);
@@ -183,19 +182,13 @@ if(options.Verbose)
     disp('7) - Add metadata information: [Name of pollutant, Label of pollutant]')
 end
 % Extract pollutant name
-name = EEAVocabularyImport('pollutant.csv'); 
-index = find(name.pollutantCode == options.PollutantCode);
+polUrl = 'https://dd.eionet.europa.eu/vocabulary/aq/pollutant/csv';
+path = websave("pollutant.csv",polUrl,opts);
 
-% add name information
-Metadata = [temp name(repmat(index,size(temp,1),1),{'Label','Notation'})]; 
+name = EEAVocabularyImport(path);
+delete(path);
 
-% add ID_sensor
-% todo
-
-% temp.AirQualityStation = [];
-% temp.Countrycode = [];
-% 
-% Table = [data temp];
+Metadata = join(temp,name, "LeftKeys",{'AirPollutantCode'},'RightKeys',{'pollutantCode'});
 
 end
 
